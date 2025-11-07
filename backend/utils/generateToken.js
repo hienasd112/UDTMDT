@@ -17,6 +17,4 @@ const generateToken = (res, userId) => {
   });
 };
 
-// --- DÒNG QUAN TRỌNG NHẤT ---
-// Dòng này tạo ra "default export" mà userController đang tìm kiếm
 export default generateToken;

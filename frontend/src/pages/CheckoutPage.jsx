@@ -3,9 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
 import axios from 'axios';
-import { CreditCard, Smartphone, Banknote, ArrowLeft, AlertCircle, ShieldAlert, Tag, CheckCircle } from 'lucide-react'; // Thêm Tag, CheckCircle
+import { CreditCard, Smartphone, Banknote, ArrowLeft, AlertCircle, ShieldAlert, Tag, CheckCircle } from 'lucide-react';
 
-// --- Component Spinner  ---
+// --- Component Spinner ---
 const SpinnerIcon = ({ color = 'text-white' }) => (
   <svg className={`animate-spin h-5 w-5 ${color}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -28,32 +28,32 @@ export default function CheckoutPage() {
   const [error, setError] = useState(''); // Lỗi chung
   const [formErrors, setFormErrors] = useState({ fullName: '', phone: '', address: '' });
 
-  // --- STATE MỚI CHO COUPON ---
-  const [couponCode, setCouponCode] = useState(''); // Mã người dùng gõ
-  const [appliedCoupon, setAppliedCoupon] = useState(null); // Mã HỢP LỆ sau khi check API
-  const [couponLoading, setCouponLoading] = useState(false); // Loading nút "Áp dụng"
-  const [couponError, setCouponError] = useState(''); // Lỗi riêng của coupon
+  // State cho Coupon
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState('');
 
-  // Tự động điền thông tin user
-  useEffect(() => { /* ... (giữ nguyên) ... */ }, [user]);
+  
+  // useEffect (ĐÚNG)
   useEffect(() => {
      if(user) {
-        setShippingInfo({
-            fullName: user.fullName || '', phone: user.phone || '', address: user.address || '',
-        });
+        setShippingInfo(prev => ({ 
+            fullName: user.fullName || prev.fullName || '', 
+            phone: user.phone || prev.phone || '', 
+            address: user.address || prev.address || '',
+        }));
      }
   }, [user]);
 
   // --- TÍNH TOÁN ---
   const shippingCost = cartTotal > 1000000 ? 0 : 30000;
   const taxAmount = 0;
-  // Lấy số tiền giảm giá từ state
   const discountAmount = appliedCoupon ? appliedCoupon.discountAmount : 0;
-  // Tổng cuối cùng (đã trừ giảm giá)
   const finalTotal = cartTotal + shippingCost + taxAmount - discountAmount;
 
   // Xử lý thay đổi input
-   const handleShippingChange = (e) => {
+    const handleShippingChange = (e) => {
     const { name, value } = e.target;
     setShippingInfo(prev => ({ ...prev, [name]: value }));
     if (formErrors[name]) setFormErrors(prev => ({ ...prev, [name]: '' }));
@@ -74,29 +74,17 @@ export default function CheckoutPage() {
 
   // --- XỬ LÝ ÁP DỤNG MÃ ---
   const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) {
-      setCouponError('Vui lòng nhập mã');
-      return;
-    }
-    setCouponLoading(true);
-    setCouponError('');
-    setError('');
-    
+    if (!couponCode.trim()) { setCouponError('Vui lòng nhập mã'); return; }
+    setCouponLoading(true); setCouponError(''); setError('');
     try {
-      // Gọi API validate, gửi mã và tổng tiền hàng (chưa có ship, tax)
       const { data } = await axios.post('/api/coupons/validate', {
-        code: couponCode,
-        cartTotal: cartTotal, // Gửi tổng tiền hàng
+        code: couponCode, cartTotal: cartTotal,
       });
-      
-      // Nếu thành công, lưu kết quả
-      setAppliedCoupon(data); // data = { code, discountAmount, ... }
-      setCouponCode(''); // Xóa ô input
-      
+      setAppliedCoupon(data);
+      setCouponCode('');
     } catch (apiError) {
-      // Nếu API báo lỗi (404, 400)
       setCouponError(apiError.response?.data?.message || "Lỗi khi áp dụng mã");
-      setAppliedCoupon(null); // Xóa mã cũ (nếu có)
+      setAppliedCoupon(null);
     } finally {
       setCouponLoading(false);
     }
@@ -108,8 +96,9 @@ export default function CheckoutPage() {
       setCouponError('');
   }
 
-  // --- XỬ LÝ ĐẶT HÀNG  ---
+  // --- XỬ LÝ ĐẶT HÀNG (ĐÃ CẬP NHẬT VNPAY) ---
   const handlePayment = async () => {
+    // 1. Kiểm tra validation
     if (!validateForm()) {
       setError('Vui lòng kiểm tra lại thông tin giao hàng.');
       return;
@@ -120,9 +109,9 @@ export default function CheckoutPage() {
     }
     
     setError('');
-    setProcessing(true);
+    setProcessing(true); // Bắt đầu loading
 
-    // Tạo đối tượng đơn hàng (ĐÃ THÊM discountPrice, couponCode)
+    // 2. Tạo đối tượng đơn hàng
     const orderData = {
       orderItems: cartItems.map(i => ({ product: i._id, name: i.name, qty: i.quantity, price: i.price, image: i.images?.[0] || '' })),
       shippingAddress: shippingInfo,
@@ -130,30 +119,67 @@ export default function CheckoutPage() {
       itemsPrice: cartTotal,
       taxPrice: taxAmount,
       shippingPrice: shippingCost,
-      discountPrice: discountAmount, // <-- Gửi tiền giảm giá
-      couponCode: appliedCoupon ? appliedCoupon.code : null, // <-- Gửi mã đã dùng
-      totalPrice: finalTotal, // <-- Gửi tổng tiền CUỐI CÙNG
+      discountPrice: discountAmount, 
+      couponCode: appliedCoupon ? appliedCoupon.code : null, 
+      totalPrice: finalTotal, 
     };
 
-    // Gọi API (giữ nguyên)
     try {
+      // 3. LUÔN LUÔN tạo đơn hàng trong DB trước
       const { data: createdOrder } = await axios.post('/api/orders', orderData);
-      console.log("Đơn hàng đã lưu vào DB:", createdOrder);
-      clearCart();
-      navigate(`/order-success`);
+      console.log("Đã tạo đơn hàng (chưa TT):", createdOrder._id);
+
+      // 4. Xử lý tùy theo phương thức thanh toán
+      if (selectedPayment === 'cod') {
+        // --- Thanh toán COD ---
+        clearCart();
+        setProcessing(false); // Dừng loading
+        navigate(`/order-success`); // Chuyển đến trang thành công
+      
+      } else if (selectedPayment === 'vnpay') {
+        // --- Thanh toán VNPAY ---
+        console.log("Đang yêu cầu link VNPAY cho đơn:", createdOrder._id);
+        
+        // Gọi API backend để lấy URL VNPAY
+        const { data: paymentData } = await axios.post('/api/payment/create-vnpay-url', {
+           orderId: createdOrder._id,
+           amount: createdOrder.totalPrice, // Lấy tổng tiền TỪ đơn hàng
+           language: 'vn',
+        });
+
+        // Backend trả về paymentUrl
+        if (paymentData && paymentData.paymentUrl) {
+           clearCart(); // Xóa giỏ hàng
+           // Chuyển hướng người dùng sang cổng VNPAY
+           window.location.href = paymentData.paymentUrl;
+        } else {
+           throw new Error("Không nhận được URL thanh toán VNPAY");
+        }
+      }
+      // (Thêm 'else if (selectedPayment === 'momo')' ở đây sau này)
+
     } catch (apiError) {
-      console.error("Lỗi khi tạo đơn hàng:", apiError);
-      setError(apiError.response?.data?.message || "Lỗi khi tạo đơn hàng. Vui lòng thử lại sau.");
-      setProcessing(false);
+      console.error("Lỗi khi xử lý đặt hàng:", apiError);
+      setError(apiError.response?.data?.message || "Lỗi khi tạo đơn hàng. Vui lòng thử lại.");
+      setProcessing(false); // Dừng loading nếu lỗi
     }
   };
 
 
   // --- RENDER (GIAO DIỆN) ---
+  // (Kiểm tra giỏ hàng rỗng)
+  if (cartItems.length === 0 && !processing) {
+    return (
+      <div className="container mx-auto px-4 py-12 text-center">
+        <p className="text-xl text-gray-600 mb-4">Giỏ hàng của bạn trống.</p>
+        <Link to="/" className="text-emerald-600 hover:underline">Quay lại mua sắm</Link>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-gray-50 min-h-screen py-12">
       <div className="container mx-auto max-w-4xl px-4">
-        {/* ... (Nút quay lại, Tiêu đề) ... */}
         <Link to="/cart" className="mb-6 inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 transition"> <ArrowLeft size={16} /> Quay lại giỏ hàng </Link>
         <h1 className="text-3xl font-bold text-gray-800 mb-8">Thanh toán</h1>
 
@@ -161,7 +187,7 @@ export default function CheckoutPage() {
           {/* --- Bên trái: Thông tin & Thanh toán --- */}
           <div className="md:col-span-2 space-y-6">
             
-            {/* Form Địa chỉ giao hàng (giữ nguyên, đã có validation) */}
+            {/* Form Địa chỉ giao hàng */}
              <div className="bg-white p-6 rounded-lg shadow">
                 <h2 className="text-xl font-semibold mb-4 text-gray-700 border-b pb-2">Thông tin giao hàng</h2>
                 {error && ( <div className="mb-4 text-sm text-red-700 bg-red-100 p-3 rounded flex items-center gap-2"> <AlertCircle size={16} /> <span>{error}</span> </div> )}
@@ -172,34 +198,30 @@ export default function CheckoutPage() {
                 </div>
              </div>
              
-             {/* Chọn phương thức thanh toán  */}
-             <div className="bg-white p-6 rounded-lg shadow"> {/* ... */} </div>
-             <div className="bg-white p-6 rounded-lg shadow">
+            {/* Chọn phương thức thanh toán */}
+            <div className="bg-white p-6 rounded-lg shadow">
               <h2 className="text-xl font-semibold mb-4 text-gray-700 border-b pb-2">Chọn phương thức thanh toán</h2>
               <div className="space-y-3 mt-3">
-                 <PaymentOption value="vnpay" selected={selectedPayment} onChange={setSelectedPayment} icon={<CreditCard size={20} className="text-blue-600"/>}> Thanh toán qua VNPAY-QR (Mô phỏng) </PaymentOption>
-                 <PaymentOption value="momo" selected={selectedPayment} onChange={setSelectedPayment} icon={<Smartphone size={20} className="text-pink-600"/>}> Thanh toán qua Ví MoMo (Mô phỏng) </PaymentOption>
+                 <PaymentOption value="vnpay" selected={selectedPayment} onChange={setSelectedPayment} icon={<CreditCard size={20} className="text-blue-600"/>}> Thanh toán qua VNPAY-QR </PaymentOption>
+                 {/* <PaymentOption value="momo" selected={selectedPayment} onChange={setSelectedPayment} icon={<Smartphone size={20} className="text-pink-600"/>}> Thanh toán qua Ví MoMo (Mô phỏng) </PaymentOption> */}
                  <PaymentOption value="cod" selected={selectedPayment} onChange={setSelectedPayment} icon={<Banknote size={20} className="text-green-600"/>}> Thanh toán khi nhận hàng (COD) </PaymentOption>
               </div>
             </div>
           </div>
 
-          {/* --- Bên phải: Tóm tắt đơn hàng  --- */}
+          {/* --- Bên phải: Tóm tắt đơn hàng --- */}
           <div className="md:col-span-1">
             <div className="bg-white p-6 rounded-lg shadow sticky top-24">
               <h2 className="text-xl font-semibold mb-4 border-b pb-3 text-gray-700">Tóm tắt đơn hàng</h2>
               
-              {/* ---  Ô NHẬP MÃ GIẢM GIÁ --- */}
+              {/* Ô NHẬP MÃ GIẢM GIÁ */}
               <div className="mb-4">
-                {/* Nếu chưa áp dụng mã, hiển thị ô input */}
                 {!appliedCoupon ? (
                   <>
                     <label htmlFor="couponCode" className="block text-sm font-medium text-gray-700 mb-1">Mã giảm giá</label>
                     <div className="flex">
                       <input
-                        type="text"
-                        id="couponCode"
-                        value={couponCode}
+                        type="text" id="couponCode" value={couponCode}
                         onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                         placeholder="NHẬP MÃ"
                         className={`block w-full rounded-l-md border-gray-300 shadow-sm sm:text-sm ${couponError ? 'border-red-500 ring-red-500' : 'focus:border-emerald-500 focus:ring-emerald-500'}`}
@@ -213,11 +235,9 @@ export default function CheckoutPage() {
                         {couponLoading ? <SpinnerIcon color="text-white" /> : "Áp dụng"}
                       </button>
                     </div>
-                    {/* Hiển thị lỗi coupon */}
                     {couponError && <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1"><ShieldAlert size={14} /> {couponError}</p>}
                   </>
                 ) : (
-                  // Nếu đã áp dụng mã, hiển thị thông báo
                   <div className="text-sm text-green-700 bg-green-100 p-3 rounded-lg border border-green-300">
                     <div className="flex justify-between items-center">
                       <span className="font-semibold flex items-center gap-1.5">
@@ -230,12 +250,10 @@ export default function CheckoutPage() {
                 )}
               </div>
               
-              {/* --- (CẬP NHẬT) TÍNH TOÁN TIỀN --- */}
+              {/* TÍNH TOÁN TIỀN */}
               <div className="space-y-2 mb-4 text-sm border-t pt-4">
                 <div className="flex justify-between text-gray-600"><span>Tạm tính</span> <span>{cartTotal.toLocaleString('vi-VN')} ₫</span></div>
                 <div className="flex justify-between text-gray-600"><span>Phí vận chuyển</span> <span className={shippingCost > 0 ? "" : "text-green-600"}>{shippingCost > 0 ? shippingCost.toLocaleString('vi-VN') + ' ₫' : 'Miễn phí'}</span></div>
-                
-                {/* Hiển thị tiền giảm giá nếu có */}
                 {discountAmount > 0 && (
                    <div className="flex justify-between text-emerald-600 font-medium">
                      <span>Giảm giá</span>
@@ -244,7 +262,7 @@ export default function CheckoutPage() {
                 )}
               </div>
               
-              {/* Tổng cộng (Đã tính lại) */}
+              {/* Tổng cộng */}
               <div className="border-t pt-4 flex justify-between text-lg font-bold text-gray-800">
                 <span>Tổng cộng</span>
                 <span className="text-emerald-700">{finalTotal.toLocaleString('vi-VN')} ₫</span>
@@ -266,7 +284,7 @@ export default function CheckoutPage() {
   );
 }
 
-// --- Component con (PaymentOption, Input) ---
+// --- Component con (PaymentOption, Input - giữ nguyên) ---
 const PaymentOption = ({ value, selected, onChange, icon, children }) => (
      <label className={`flex items-center p-4 border rounded-lg cursor-pointer transition ${selected === value ? 'border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50/50' : 'border-gray-300 hover:border-gray-400 bg-white'}`}>
         <input type="radio" name="paymentMethod" value={value} checked={selected === value} onChange={() => onChange(value)} className="mr-3 h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300"/>

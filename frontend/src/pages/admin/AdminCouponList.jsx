@@ -182,7 +182,7 @@ export default function AdminCouponList() {
   );
 }
 
-// Component Input (tái sử dụng)
+// Component Input 
 const Input = ({ label, name, type = 'text', value, onChange, required = false, placeholder = '', min }) => (
   <div>
     <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
@@ -193,7 +193,7 @@ const Input = ({ label, name, type = 'text', value, onChange, required = false, 
     />
   </div>
 );
-// Component Select (tái sử dụng)
+// Component Select 
 const Select = ({ label, name, value, onChange, children }) => (
   <div>
     <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
