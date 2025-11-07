@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { useCart } from "../hooks/useCart"; // Import custom hook
-import { Trash2, Plus, Minus } from "lucide-react"; // Import icons
+import { useCart } from "../hooks/useCart"; 
+import { Trash2, Plus, Minus } from "lucide-react"; 
 
 // Hàm getImageUrl (cần cho trang này)
 const getImageUrl = (imagePath) => {
@@ -128,11 +128,6 @@ export default function Cart() {
                 <span>Phí vận chuyển</span>
                 <span className="font-medium text-green-600">Miễn phí</span>
               </div>
-              {/* Thêm Mã giảm giá sau */}
-              {/* <div className="flex justify-between text-gray-600">
-                <span>Giảm giá</span>
-                <span>- {discountAmount.toLocaleString("vi-VN")} ₫</span>
-              </div> */}
               <div className="border-t pt-4 mt-4 flex justify-between text-xl font-bold text-gray-800">
                 <span>Tổng cộng</span>
                 <span className="text-emerald-700">
@@ -142,7 +137,7 @@ export default function Cart() {
             </div>
             {/* Nút Thanh toán */}
             <Link
-              to="/checkout" // Link tới trang thanh toán (tạo sau)
+              to="/checkout" // Link tới trang thanh toán
               className="mt-6 block w-full rounded-lg bg-emerald-600 py-3 text-center text-lg font-bold text-white shadow transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
             >
               Tiến hành thanh toán
